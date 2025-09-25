@@ -1,44 +1,109 @@
-chatController = ($scope, $routeParams, chat, uploadImage) ->
-    $scope.lastestConversations = chat.lastestConversations()
+import React, 'react';
+import { chatService, uploadImageService } from './services'; // Assuming services are in a 'services.ts' file
 
-    $scope.open = (id) ->
-        $scope.conversationId = id
-        $scope.conversation = chat.getConversation(id)
-        $scope.sentImages = null
-    $scope.open($routeParams.id) if $routeParams.id
+interface Message {
+  // Define your message structure
+}
 
-    $scope.$on 'new_message', ->
-        $scope.conversation = chat.getConversation($scope.conversationId)
-        $scope.lastestConversations = chat.lastestConversations()
+interface Conversation {
+  id: string;
+  messages: Message[];
+  // Other conversation properties
+}
 
-    $scope.sendText = ->
-        chat.sendText($scope.message, $scope.conversationId)
-        $scope.message = ''
+interface ChatProps {
+  routeParams: {
+    id?: string;
+  };
+}
 
-    
-    $scope.showSentImages = ->
-        $scope.sentImages = chat.sentImages
-    
-    $scope.$watch 'imageFile', ->
-        if $scope.imageFile
-            $scope.uploading = true
-            uploadImage.uploadChatImage($scope.imageFile).then (imageHash) ->
-                $scope.uploading = false
-                chat.sentImages.push(imageHash) if imageHash
+const Chat: React.FC<ChatProps> = ({ routeParams }) => {
+  const [latestConversations, setLatestConversations] = React.useState<Conversation[]>([]);
+  const [conversationId, setConversationId] = React.useState<string | null>(routeParams.id || null);
+  const [conversation, setConversation] = React.useState<Conversation | null>(null);
+  const [sentImages, setSentImages] = React.useState<string[] | null>(null);
+  const [message, setMessage] = React.useState('');
+  const [imageFile, setImageFile] = React.useState<File | null>(null);
+  const [uploading, setUploading] = React.useState(false);
 
-    $scope.sendImage = (imageHash) ->
-        chat.sendImage(imageHash, $scope.conversationId)
-        
-    $scope.sendLocation = ->
-        chat.sendLocation($scope.conversationId)
+  React.useEffect(() => {
+    setLatestConversations(chatService.latestConversations());
 
-    $scope.block = ->
-        if confirm('Sure you want to block him?')
-            chat.block($scope.conversationId)
-            $scope.conversationId = null
-            $scope.lastestConversations = chat.lastestConversations()
+    const handleNewMessage = () => {
+      if (conversationId) {
+        setConversation(chatService.getConversation(conversationId));
+      }
+      setLatestConversations(chatService.latestConversations());
+    };
 
+    // This simulates the '$scope.$on('new_message', ...)'
+    // You would implement this with your actual event system (e.g., WebSockets, event bus)
+    const unsubscribe = chatService.subscribe('new_message', handleNewMessage);
+    return () => unsubscribe();
+  }, [conversationId]);
 
-angular.
-    module('chatController', ['ngRoute', 'file-model', 'chat', 'uploadImage']).
-    controller('chatController', ['$scope', '$routeParams', 'chat', 'uploadImage', chatController])
+  React.useEffect(() => {
+    if (conversationId) {
+      setConversation(chatService.getConversation(conversationId));
+      setSentImages(null);
+    }
+  }, [conversationId]);
+
+  React.useEffect(() => {
+    const upload = async () => {
+      if (imageFile) {
+        setUploading(true);
+        try {
+          const imageHash = await uploadImageService.uploadChatImage(imageFile);
+          if (imageHash) {
+            setSentImages(prev => [...(prev || []), imageHash]);
+          }
+        } finally {
+          setUploading(false);
+        }
+      }
+    };
+    upload();
+  }, [imageFile]);
+
+  const handleSendText = () => {
+    if (conversationId) {
+      chatService.sendText(message, conversationId);
+      setMessage('');
+    }
+  };
+
+  const handleShowSentImages = () => {
+    setSentImages(chatService.sentImages);
+  };
+
+  const handleSendImage = (imageHash: string) => {
+    if (conversationId) {
+      chatService.sendImage(imageHash, conversationId);
+    }
+  };
+
+  const handleSendLocation = () => {
+    if (conversationId) {
+      chatService.sendLocation(conversationId);
+    }
+  };
+
+  const handleBlock = () => {
+    if (window.confirm('Sure you want to block him?')) {
+      if (conversationId) {
+        chatService.block(conversationId);
+        setConversationId(null);
+        setLatestConversations(chatService.latestConversations());
+      }
+    }
+  };
+
+  return (
+    <div>
+      {/* Your Chat UI */}
+    </div>
+  );
+};
+
+export default Chat;```
