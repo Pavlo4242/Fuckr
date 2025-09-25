@@ -1,0 +1,1 @@
+start fuckr\nw.exe
